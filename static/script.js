@@ -36,6 +36,51 @@ function populateBooks() {
         option.textContent = book;
         bookSelect.appendChild(option);
     });
+
+    // Set the default book to the first one in the list
+    bookSelect.selectedIndex = 0;  // Default to the first book
+    const firstBook = bookSelect.value;
+    populateChapters(firstBook);
+}
+
+// Populate Chapters
+function populateChapters(book) {
+    const chapterSelect = document.getElementById("chapterSelect");
+    const verseSelect = document.getElementById("verseSelect");
+
+    chapterSelect.innerHTML = "";  // Clear previous options
+    verseSelect.innerHTML = "";     // Clear previous options
+
+    const numChapters = fullBibleData[book].Chapters;
+
+    for (let i = 1; i <= numChapters; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        chapterSelect.appendChild(option);
+    }
+
+    // Set the default chapter to the first one
+    chapterSelect.selectedIndex = 0;  // Default to the first chapter
+    const firstChapter = chapterSelect.value;
+    populateVerses(book, firstChapter);
+}
+
+// Populate Verses
+function populateVerses(book, chapter) {
+    const verseSelect = document.getElementById("verseSelect");
+
+    verseSelect.innerHTML = "";  // Clear previous options
+
+    const numVerses = fullBibleData[book].Verses[chapter];
+    for (let i = 1; i <= numVerses; i++) {
+        const option = document.createElement("option");
+        option.value = i;
+        option.textContent = i;
+        verseSelect.appendChild(option);
+    }
+
+    verseSelect.selectedIndex = 0;
 }
 
 // Event Listeners
@@ -65,39 +110,6 @@ document.getElementById("findSimilarButton").addEventListener("click", function 
     }
 });
 
-// Populate Chapters
-function populateChapters(book) {
-    const chapterSelect = document.getElementById("chapterSelect");
-    const verseSelect = document.getElementById("verseSelect");
-
-    chapterSelect.innerHTML = "";  // Clear previous options
-    verseSelect.innerHTML = "";     // Clear previous options
-
-    const numChapters = fullBibleData[book].Chapters;
-
-    for (let i = 1; i <= numChapters; i++) {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = i;
-        chapterSelect.appendChild(option);
-    }
-}
-
-// Populate Verses
-function populateVerses(book, chapter) {
-    const verseSelect = document.getElementById("verseSelect");
-
-    verseSelect.innerHTML = "";  // Clear previous options
-
-    const numVerses = fullBibleData[book].Verses[chapter];
-    for (let i = 1; i <= numVerses; i++) {
-        const option = document.createElement("option");
-        option.value = i;
-        option.textContent = i;
-        verseSelect.appendChild(option);
-    }
-}
-
 // Send response to the server
 function sendId(book, chapter, verse) {
     const booknNames = Object.keys(fullBibleData);
@@ -106,9 +118,12 @@ function sendId(book, chapter, verse) {
     const id = bookId * 1000000 + chapter * 1000 + verse;
 
     fetch("/find_similar", {
-        methods: ["POST"],
-        body: JSON.stringify({ id: id })
+        method: ["POST"],
+        body: JSON.stringify({ id: id }),
+        headers: {"Content-Type": "application/json"}
     })
+
+    // this handles the response that we receive from the server
     .then(response => response.json())
     .then(data => {})
 }
