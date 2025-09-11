@@ -1,0 +1,12 @@
+# connecting python to postgresql
+psycopg2-binary
+
+# loading env variables
+python-dotenv
+
+sentence-transformers
+flask
+pandas
+numpy
+
+

@@ -1,0 +1,38 @@
+# docker version
+version: '3.8'
+
+# what are the containers that we want to run
+services:
+  postgres:
+    image: pgvector/pgvector:pg15
+    container_name: bible_postgres
+
+    # environment variables for the container
+    environment:
+      # name of the db
+      POSTGRES_DB: bible_verses
+
+      # credentials for the db
+      POSTGRES_USER: bibleuser  
+      POSTGRES_PASSWORD: securepassword123
+
+      # allows us to log in without password for local dev
+      POSTGRES_HOST_AUTH_METHOD: trust
+
+    # port of my machine : port of the container
+    ports:
+      - "5432:5432"
+
+    # standard setup for posgresql
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./data:/docker-data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bibleuser -d bible_verses"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  postgres_data:
