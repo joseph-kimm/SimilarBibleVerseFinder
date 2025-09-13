@@ -4,6 +4,9 @@ psycopg2-binary
 # loading env variables
 python-dotenv
 
+# sql related library
+sqlalchemy
+
 sentence-transformers
 flask
 pandas
