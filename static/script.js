@@ -1,4 +1,3 @@
-
 /*
 const bibleData = {
     "Genesis": 50, "Exodus": 40, "Leviticus": 27, "Numbers": 36, "Deuteronomy": 34, 
@@ -17,6 +16,8 @@ const bibleData = {
 };
 */
 
+
+// START OF LOADING BIBLE DATA AND POPULATING DROPDOWNS
 let fullBibleData = {};  // will hold JSON data
 
 // Fetch the verse data JSON (place it in static or serve via Flask)
@@ -83,6 +84,84 @@ function populateVerses(book, chapter) {
     verseSelect.selectedIndex = 0;
 }
 
+// END OF LOADING BIBLE DATA AND POPULATING DROPDOWNS
+
+
+
+// Send response to the server
+function sendId(book, chapter, verse) {
+    const booknNames = Object.keys(fullBibleData);
+    const bookId = booknNames.indexOf(book) +1;
+
+    // error of chapter and verse being a string
+    chapter = Number(chapter)
+    verse = Number(verse)
+
+    const id = (bookId * 1000000) + (chapter * 1000) + verse;
+
+    console.log(id)
+
+    fetch("/find_similar", {
+        method: ["POST"],
+        body: JSON.stringify({ id: id }),
+        headers: {"Content-Type": "application/json"}
+    })
+
+    // this handles the response that we receive from the server
+    .then(response => response.json())
+    .then(data => {
+        if (data.error) {
+            alert(data.error);
+            return;
+        }
+
+        const resultsDiv = document.getElementById("similarityResults");
+        const originalCitation = document.getElementById("originalCitation");
+        const originalText = document.getElementById("originalText");
+        const similarVersesList = document.getElementById("similarVersesList");
+
+        // Display the results section
+        resultsDiv.style.display = "block";
+
+        // Get the original verse (first in the results array)
+        const originalVerse = data.results[0];
+        originalCitation.textContent = originalVerse.citation;
+        originalText.textContent = originalVerse.text;
+
+        // Clear previous similar verses
+        similarVersesList.innerHTML = "";
+
+        // Display similar verses (skip the first one as it's the original)
+        for (let i = 1; i < data.results.length; i++) {
+            const verse = data.results[i];
+            const similarityPercentage = (verse.similarity * 100).toFixed(1);
+
+            const verseCard = `
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h5 class="card-title d-flex justify-content-between">
+                                ${verse.citation}
+                                <span class="badge bg-primary">${similarityPercentage}% Similar</span>
+                            </h5>
+                            <p class="card-text">${verse.text}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+            similarVersesList.innerHTML += verseCard;
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('An error occurred while fetching similar verses.');
+    });
+}
+
+
+
+// START OF EVENT LISTENERS
+
 // Event Listeners
 document.getElementById("bookSelect").addEventListener("change", function () {
     const book = this.value;
@@ -110,20 +189,4 @@ document.getElementById("findSimilarButton").addEventListener("click", function 
     }
 });
 
-// Send response to the server
-function sendId(book, chapter, verse) {
-    const booknNames = Object.keys(fullBibleData);
-    const bookId = booknNames.indexOf(book) +1;
-
-    const id = bookId * 1000000 + chapter * 1000 + verse;
-
-    fetch("/find_similar", {
-        method: ["POST"],
-        body: JSON.stringify({ id: id }),
-        headers: {"Content-Type": "application/json"}
-    })
-
-    // this handles the response that we receive from the server
-    .then(response => response.json())
-    .then(data => {})
-}
+// END OF EVENT LISTENERS

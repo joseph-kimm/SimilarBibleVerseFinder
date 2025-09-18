@@ -71,3 +71,105 @@ label {
 .form-group {
     margin-bottom: 1rem;
 }
+
+/* Additional styles for similarity results - ADD TO YOUR EXISTING style.css */
+
+/* Results section styling */
+#similarityResults {
+    animation: fadeIn 0.5s ease-in;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Original verse section */
+.original-verse-section .card {
+    background: linear-gradient(135deg, #f8f9ff 0%, #e3f2fd 100%);
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 123, 255, 0.1);
+}
+
+/* Similar verses cards */
+.similar-verses-section .card {
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.similar-verses-section .card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+}
+
+/* Card body improvements */
+.card-body {
+    padding: 1.25rem;
+}
+
+.card-title {
+    margin-bottom: 0.75rem;
+    font-size: 1.1em;
+}
+
+/* Badge styling */
+.badge {
+    font-weight: 600;
+    font-size: 0.8em;
+    padding: 0.4em 0.8em;
+}
+
+/* Alert styling */
+.alert {
+    border-radius: 10px;
+    border: none;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.alert-info {
+    background-color: #e3f2fd;
+    color: #1565c0;
+}
+
+.alert-danger {
+    background-color: #ffebee;
+    color: #c62828;
+}
+
+/* Loading state for button */
+.btn-secondary {
+    background-color: #6c757d;
+    border-color: #6c757d;
+}
+
+/* Responsive design for cards */
+@media (max-width: 768px) {
+    .similar-verses-section .col-md-6 {
+        margin-bottom: 1rem;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
+    
+    .card-title {
+        font-size: 1em;
+    }
+}
+
+/* Section divider */
+hr {
+    border: none;
+    height: 2px;
+    background: linear-gradient(to right, transparent, #007BFF, transparent);
+    margin: 3rem 0;
+}
+
+/* Text improvements */
+.text-muted {
+    color: #6c757d !important;
+    font-size: 0.9em;
+}
