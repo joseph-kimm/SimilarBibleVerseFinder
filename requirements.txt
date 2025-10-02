@@ -7,8 +7,16 @@ python-dotenv
 # sql related library
 sqlalchemy
 
+# for 3d visualization
+umap-learn
+
+# for our model
 sentence-transformers
+
+# backend framework
 flask
+
+# usual data libraries
 pandas
 numpy
 
