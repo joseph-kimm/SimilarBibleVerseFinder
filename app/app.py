@@ -8,6 +8,9 @@ from psycopg2 import pool
 from sentence_transformers import SentenceTransformer
 from pathlib import Path
 
+# For Google Cloud deployment
+PORT = 8080 
+
 # Load environment variables from .env file
 dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv()
@@ -18,11 +21,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 connection_pool = pool.SimpleConnectionPool(
     1,  # minimum connections
     10,  # maximum connections
-    host=os.getenv("POSTGRES_HOST"),
-    dbname=os.getenv("POSTGRES_DB"),
-    user=os.getenv("POSTGRES_USER"),
-    password=os.getenv("POSTGRES_PASSWORD"),
-    port=os.getenv("POSTGRES_PORT")
+    url=os.getenv("SUPABASE_URL")
 )
 
 def connect():
@@ -234,5 +233,5 @@ def find_query():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    app.run(host="0.0.0.0", port=PORT, debug=True)
     
