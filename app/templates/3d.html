@@ -1,0 +1,71 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Bible Verse Visualization</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div id="landing-overlay">
+        <div id="landing-verse">
+            <div class="verse-text">"And they that be wise shall shine as the brightness of the firmament; and they that turn many to righteousness as the stars for ever and ever."</div>
+            <div class="verse-citation">Daniel 12:3</div>
+            <div class="click-hint">Click to explore the Word of God</div>
+        </div>
+    </div>
+    <div id="canvas-container"></div>
+    <div id="tooltip">
+        <div class="citation"></div>
+        <div class="verse"></div>
+        <div class="coordinates"></div>
+        <div class="similarity" style="display: none;"></div>
+    </div>
+    <div id="search" class="ui-section">
+        <div class="toggle-wrapper">
+            <div class="toggle-slider" id="slider"></div>
+            <button class="toggle-btn active" id="verseButton">Verse</button>
+            <button class="toggle-btn" id="textButton">Text</button>
+        </div>
+
+        <div id="searchByVerse" class="search-section active">
+            <label>Book:</label>
+            <select id="bookSelect"></select>
+
+            <label>Chapter:</label>
+            <select id="chapterSelect"></select>
+
+            <label>Verse:</label>
+            <select id="verseSelect"></select>
+
+            <button id="findByVerseButton">Search</button>
+        </div>
+
+        <div id="searchByText" class="search-section">
+            <label>Search Text:</label>
+            <input type="text" id="searchInput" placeholder="Enter text to search">
+            <button id="findByTextButton">Search</button>
+            <div id="searchLoadingSpinner" class="search-loading">
+                <div class="spinner"></div>
+                <div class="loading-text">Comparing given text with all the bible verses...</div>
+            </div>
+        </div>
+    </div>
+    <div id="results-list" class="ui-section"></div>
+    <div id="controls" class="ui-section">
+        <strong>Controls:</strong><br>
+        Left Click + Drag: Rotate<br>
+        Right Click + Drag: Pan<br>
+        Scroll: Zoom<br>
+        Click Point: View verse
+    </div>
+    <div id="info" class="ui-section">
+        Camera Coordinates: <span id="x">0</span>, <span id="y">0</span>, <span id="z">0</span>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script type="module" src="{{ url_for('static', filename='3d.js') }}"></script>
+    <script type="module" src="{{ url_for('static', filename='search.js') }}"></script>
+</body>
+</html>

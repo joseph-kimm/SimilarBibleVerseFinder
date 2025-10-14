@@ -1,0 +1,383 @@
+* {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+    }
+    body {
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        overflow: hidden;
+        background: #0a0a0a;
+    }
+    #canvas-container {
+        width: 100vw;
+        height: 100vh;
+    }
+    #tooltip {
+        position: absolute;
+        background: rgba(0, 0, 0, 0.9);
+        color: #fff;
+        padding: 15px 20px;
+        border-radius: 8px;
+        pointer-events: none;
+        display: none;
+        max-width: 400px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        z-index: 1000;
+    }
+    #tooltip .citation {
+        font-weight: bold;
+        font-size: 16px;
+        margin-bottom: 8px;
+        color: white;
+    }
+    #tooltip .verse {
+        font-size: 14px;
+        line-height: 1.5;
+        color: #e0e0e0;
+    }
+    #tooltip .coordinates {
+        font-size: 12px;
+        color: #888;
+        margin-top: 8px;
+        font-family: monospace;
+    }
+
+    #tooltip .similarity {
+        font-size: 14px;
+        color: #5a5a5a;
+        margin-top: 8px;
+        font-family: monospace;
+    }
+
+
+    #controls {
+        position: absolute;
+        top: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 15px;
+        border-radius: 8px;
+        color: white;
+        font-size: 14px;
+        z-index: 100;
+    }
+    #info {
+        position: absolute;
+        bottom: 20px;
+        right: 20px;
+        background: rgba(0, 0, 0, 0.7);
+        padding: 10px 15px;
+        border-radius: 8px;
+        color: white;
+        font-size: 12px;
+        z-index: 100;
+    }
+    #loading {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        color: white;
+        font-size: 18px;
+        z-index: 200;
+    }
+
+    #search {
+        position: absolute;
+        top: 20px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        width: 280px;
+        height: 350px;
+    }
+
+    .toggle-wrapper {
+        display: flex;
+        background-color: #2a2a2a;
+        border-radius: 25px;
+        padding: 4px;
+        position: relative;
+        width: 100%;
+        margin-bottom: 15px;
+    }
+
+    .toggle-btn {
+        padding: 10px 20px;
+        border: none;
+        background: transparent;
+        color: #888;
+        font-weight: 600;
+        cursor: pointer;
+        border-radius: 21px;
+        transition: all 0.3s ease;
+        position: relative;
+        z-index: 2;
+        flex: 1;
+    }
+
+    .toggle-btn.active {
+        color: #1a1a1a;
+    }
+
+    .toggle-slider {
+        position: absolute;
+        background: linear-gradient(145deg, #ffffff, #e8e8e8);
+        border-radius: 21px;
+        transition: all 0.3s ease;
+        z-index: 1;
+        top: 4px;
+        bottom: 4px;
+        width: calc(50% - 4px);
+        left: 4px;
+    }
+
+    .toggle-slider.slide-right {
+        left: calc(50% + 0px);
+    }
+
+    .search-section {
+        display: none;
+    }
+
+    .search-section.active {
+        display: block;
+    }
+
+    .search-section label {
+        display: block;
+        color: #fff;
+        margin-bottom: 5px;
+        margin-top: 10px;
+        font-size: 14px;
+    }
+
+    .search-section select {
+        width: 100%;
+        padding: 5px 8px;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.4);
+        background: #2a2a2a;
+        color: #fff;
+        font-size: 13px;
+        height: 32px;
+        margin-bottom: 7px;
+        cursor: pointer;
+    }
+
+    .search-section select option {
+        background: #2a2a2a;
+        color: #fff;
+        padding: 5px;
+    }
+
+
+    .search-section input {
+        width: 100%;
+        padding: 8px;
+        margin-bottom: 10px;
+        border-radius: 5px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        background: rgba(255, 255, 255, 0.1);
+        color: #fff;
+    }
+
+    .search-section button {
+        width: 100%;
+        padding: 10px;
+        background: #fff;
+        color: #000;
+        border: none;
+        border-radius: 5px;
+        cursor: pointer;
+        font-weight: 600;
+        margin-top: 10px;
+    }
+
+    .search-section button:hover {
+        background: #fcefef;
+    }
+
+    #landing-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100vw;
+        height: 100vh;
+        background: transparent;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        cursor: pointer;
+        transition: opacity 0.5s ease;
+    }
+
+    #landing-overlay.hidden {
+        opacity: 0;
+        pointer-events: none;
+    }
+
+    #landing-verse {
+        text-align: center;
+        color: white;
+        max-width: 800px;
+        padding: 40px;
+    }
+
+    #landing-verse .verse-text {
+        font-size: 32px;
+        font-weight: 300;
+        line-height: 1.6;
+        margin-bottom: 20px;
+        font-style: italic;
+    }
+
+    #landing-verse .verse-citation {
+        font-size: 18px;
+        color: #888;
+        font-weight: 600;
+    }
+
+    #landing-verse .click-hint {
+        font-size: 14px;
+        color: #666;
+        margin-top: 40px;
+        animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+        0%, 100% { opacity: 0.5; }
+        50% { opacity: 1; }
+    }
+
+    .ui-section {
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.5s ease;
+    }
+
+    .ui-section.visible {
+        opacity: 1;
+        pointer-events: auto;
+    }
+
+    #results-list {
+        position: absolute;
+        top: 390px;
+        left: 20px;
+        z-index: 100;
+        background: rgba(0, 0, 0, 0.8);
+        padding: 15px;
+        border-radius: 10px;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.5);
+        width: 280px;
+        max-height: calc(100vh - 430px);
+        overflow-y: auto;
+        overflow-x: hidden;
+    }
+
+    #results-list:empty {
+        display: none;
+    }
+
+    .verse-item {
+        background: rgba(255, 255, 255, 0.05);
+        padding: 12px;
+        margin-bottom: 10px;
+        border-radius: 8px;
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        transition: background 0.2s ease;
+    }
+
+    .verse-item:hover {
+        background: rgba(255, 255, 255, 0.1);
+    }
+
+    .verse-item.original {
+        background: rgba(255, 255, 255, 0.15);
+        border: 1px solid rgba(255, 255, 255, 0.3);
+    }
+
+    .verse-item .verse-citation {
+        font-weight: bold;
+        font-size: 14px;
+        color: #fff;
+        margin-bottom: 6px;
+    }
+
+    .verse-item.original .verse-citation {
+        color: #ffd700;
+    }
+
+    .verse-item .verse-text {
+        font-size: 13px;
+        line-height: 1.5;
+        color: #e0e0e0;
+        margin-bottom: 6px;
+    }
+
+    .verse-item .verse-similarity {
+        font-size: 12px;
+        color: #888;
+        font-family: monospace;
+    }
+
+    .verse-item.original .verse-similarity {
+        color: #ffd700;
+    }
+
+    #results-list::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #results-list::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 3px;
+    }
+
+    #results-list::-webkit-scrollbar-thumb {
+        background: rgba(255, 255, 255, 0.2);
+        border-radius: 3px;
+    }
+
+    #results-list::-webkit-scrollbar-thumb:hover {
+        background: rgba(255, 255, 255, 0.3);
+    }
+
+    .search-loading {
+        display: none;
+        margin-top: 15px;
+        text-align: center;
+        padding: 10px;
+    }
+
+    .search-loading.active {
+        display: block;
+    }
+
+    .spinner {
+        width: 30px;
+        height: 30px;
+        border: 3px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        margin: 0 auto 10px;
+        animation: spin 0.8s linear infinite;
+    }
+
+    .loading-text {
+        color: #e0e0e0;
+        font-size: 12px;
+        line-height: 1.4;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
