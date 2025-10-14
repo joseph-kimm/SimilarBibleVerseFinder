@@ -293,11 +293,14 @@
         margin-bottom: 10px;
         border-radius: 8px;
         border: 1px solid rgba(255, 255, 255, 0.1);
-        transition: background 0.2s ease;
+        transition: all 0.2s ease;
+        cursor: pointer;
     }
 
     .verse-item:hover {
-        background: rgba(255, 255, 255, 0.1);
+        background: rgba(255, 255, 255, 0.15);
+        border-color: rgba(255, 255, 255, 0.3);
+        transform: translateX(4px);
     }
 
     .verse-item.original {

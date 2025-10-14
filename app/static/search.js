@@ -1,5 +1,5 @@
-// Import highlight functions and verseManager from 3d.js
-import { highlightSimilarVerses, panCameraToVerses, verseManager } from './3d.js';
+// Import highlight and camera functions from 3d.js
+import { highlightSimilarVerses, panCameraToVerse } from './3d.js';
 
 // Landing overlay functionality
 const landingOverlay = document.getElementById('landing-overlay');
@@ -105,40 +105,50 @@ function populateVerses(book, chapter) {
 }
 
 // Function to display verses in the results list
-function displayVersesList(verses, originalVerseId = null) {
+function displayVersesList(verses, originalVerse = null) {
     const resultsList = document.getElementById('results-list');
     resultsList.innerHTML = ''; // Clear previous results
 
     // Display original verse first if provided
-    if (originalVerseId !== null && verseManager.idToIndex.has(originalVerseId)) {
-        const index = verseManager.idToIndex.get(originalVerseId);
-        const verseData = verseManager.getVerse(index);
-
+    if (originalVerse !== null) {
         const verseItem = document.createElement('div');
         verseItem.className = 'verse-item original';
+        verseItem.dataset.verseId = originalVerse.id;
         verseItem.innerHTML = `
-            <div class="verse-citation">${verseData.citation}</div>
-            <div class="verse-text">${verseData.text}</div>
+            <div class="verse-citation">${originalVerse.citation}</div>
+            <div class="verse-text">${originalVerse.text}</div>
             <div class="verse-similarity">Original Verse</div>
         `;
+        // Add click handler to pan camera to this verse and super-emphasize it
+        verseItem.addEventListener('click', () => {
+            // Re-highlight with this verse super-emphasized (magenta, size 6.0)
+            highlightSimilarVerses(verses, originalVerse.id, originalVerse.id);
+            // Pan camera to zoom in on this verse
+            panCameraToVerse(originalVerse.id);
+        });
         resultsList.appendChild(verseItem);
     }
 
-    // Display similar verses
+    // Display similar verses (verses already contain citation and text from API)
     verses.forEach(item => {
-        if (verseManager.idToIndex.has(item.id)) {
-            const index = verseManager.idToIndex.get(item.id);
-            const verseData = verseManager.getVerse(index);
-
-            const verseItem = document.createElement('div');
-            verseItem.className = 'verse-item';
-            verseItem.innerHTML = `
-                <div class="verse-citation">${verseData.citation}</div>
-                <div class="verse-text">${verseData.text}</div>
-                <div class="verse-similarity">Similarity: ${(item.similarity * 100).toFixed(1)}%</div>
-            `;
-            resultsList.appendChild(verseItem);
-        }
+        const verseItem = document.createElement('div');
+        verseItem.className = 'verse-item';
+        verseItem.dataset.verseId = item.id;
+        verseItem.innerHTML = `
+            <div class="verse-citation">${item.citation}</div>
+            <div class="verse-text">${item.text}</div>
+            <div class="verse-similarity">Similarity: ${(item.similarity * 100).toFixed(1)}%</div>
+        `;
+        // Add click handler to pan camera to this verse and super-emphasize it
+        verseItem.addEventListener('click', () => {
+            // Re-highlight with this verse super-emphasized (magenta, size 6.0)
+            // Keep original verse highlighted if it exists
+            const origId = originalVerse ? originalVerse.id : null;
+            highlightSimilarVerses(verses, origId, item.id);
+            // Pan camera to zoom in on this verse
+            panCameraToVerse(item.id);
+        });
+        resultsList.appendChild(verseItem);
     });
 }
 
@@ -169,16 +179,17 @@ function sendVerse(book, chapter, verse) {
             return;
         }
 
+        const originalVerse = data.original_verse;
         const similarVerses = data.results;
 
-        // Display verses in the list
-        displayVersesList(similarVerses, id);
+        // Display verses in the list with original verse data
+        displayVersesList(similarVerses, originalVerse);
 
         // Highlight similar verses with the original verse ID
-        highlightSimilarVerses(similarVerses, id);
+        highlightSimilarVerses(similarVerses, originalVerse.id);
 
-        // Pan camera to the highlighted verses
-        panCameraToVerses(similarVerses, id);
+        // Pan camera to centroid of all similar verses (overview)
+        panCameraToVerse(similarVerses);
     })
     .catch(error => {
         console.error('Error:', error);
@@ -208,6 +219,7 @@ function sendQuery(query) {
             return;
         }
 
+        // Results already contain citation and text from API
         const similarVerses = data.results;
 
         // Display verses in the list (no original verse for text queries)
@@ -216,8 +228,8 @@ function sendQuery(query) {
         // Highlight similar verses (no original verse for text queries)
         highlightSimilarVerses(similarVerses, null);
 
-        // Pan camera to the highlighted verses
-        panCameraToVerses(similarVerses, null);
+        // Pan camera to centroid of all similar verses
+        panCameraToVerse(similarVerses);
     })
     .catch(error => {
         // Hide loading spinner on error

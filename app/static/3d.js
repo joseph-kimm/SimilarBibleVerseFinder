@@ -15,9 +15,6 @@ class VerseManager {
         this.colors = null; // Float32Array for RGB colors
         this.sizes = null; // Float32Array for point sizes
         this.ids = []; // Store verse IDs
-        this.citations = [];
-        this.texts = [];
-        this.books = []; // Store book numbers
         this.idToIndex = new Map(); // Fast O(1) lookup: verse ID -> array index
         this.count = 0;
     }
@@ -27,19 +24,19 @@ class VerseManager {
         this.colors = new Float32Array(size * 3);
         this.sizes = new Float32Array(size);
         this.ids = new Array(size);
-        this.citations = new Array(size);
-        this.texts = new Array(size);
-        this.books = new Array(size);
         this.idToIndex.clear();
         this.count = size;
     }
 
-    setVerse(index, id, x, y, z, citation, text, book) {
+    setVerse(index, id, x, y, z) {
         const i = index * 3;
         // Apply scaling factor
         this.positions[i] = x * SCALE_FACTOR;
         this.positions[i + 1] = y * SCALE_FACTOR;
         this.positions[i + 2] = z * SCALE_FACTOR;
+
+        // Calculate book number from ID (ID = bookId * 1000000 + chapter * 1000 + verse)
+        const book = Math.floor(id / 1000000);
 
         // Set color based on book (1-66)
         const color = this.getColorForBook(book);
@@ -51,9 +48,6 @@ class VerseManager {
         this.sizes[index] = 0.8;
 
         this.ids[index] = id;
-        this.citations[index] = citation;
-        this.texts[index] = text;
-        this.books[index] = book;
         this.idToIndex.set(id, index); // Build fast lookup map
     }
     
@@ -92,10 +86,7 @@ class VerseManager {
             id: this.ids[index],
             x: this.positions[i],
             y: this.positions[i + 1],
-            z: this.positions[i + 2],
-            citation: this.citations[index],
-            text: this.texts[index],
-            book: this.books[index]
+            z: this.positions[i + 2]
         };
     }
 }
@@ -194,7 +185,7 @@ function createStarTexture() {
 
 // Load data function
 window.loadVerses = function(jsonData) {
-    
+
     setTimeout(() => {
         // Clear existing data
         if (pointsObject) {
@@ -206,7 +197,7 @@ window.loadVerses = function(jsonData) {
         const count = jsonData.length;
         verseManager.init(count);
 
-        // Populate data with scaling
+        // Populate data with id and coordinates only
         for (let i = 0; i < count; i++) {
             const item = jsonData[i];
             verseManager.setVerse(
@@ -214,10 +205,7 @@ window.loadVerses = function(jsonData) {
                 item.id || 0,
                 item.coordinates.x || 0,
                 item.coordinates.y || 0,
-                item.coordinates.z || 0,
-                item.citation || '',
-                item.text || '',
-                item.book || 1
+                item.coordinates.z || 0
             );
         }
 
@@ -332,29 +320,60 @@ renderer.domElement.addEventListener('mouseup', (e) => {
     }
 });
 
-renderer.domElement.addEventListener('click', (e) => {
+renderer.domElement.addEventListener('click', async (e) => {
     if (!pointsObject || isRotating || isPanning) return;
-    
+
     // Update mouse coordinates precisely
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
     mouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
-    
+
     raycaster.setFromCamera(mouse, camera);
     const intersects = raycaster.intersectObject(pointsObject);
-    
+
     if (intersects.length > 0) {
         // Get the closest intersection
         const pointIndex = intersects[0].index;
-        
-        // Debug: log the index to verify it's changing
-        console.log('Clicked point index:', pointIndex);
-        
+
         // Only update if it's a different point
         if (pointIndex !== lastClickedIndex) {
             lastClickedIndex = pointIndex;
-            const verse = verseManager.getVerse(pointIndex);
-            console.log('Verse data:', verse);
-            showTooltip(e.clientX, e.clientY, verse);
+            const verseCoords = verseManager.getVerse(pointIndex);
+            console.log('Clicked point index:', pointIndex, 'ID:', verseCoords.id);
+
+            // Store click position for later use
+            const clickX = e.clientX;
+            const clickY = e.clientY;
+
+            // Fetch verse details from API (no loading state shown)
+            try {
+                const response = await fetch(`/api/verse/${verseCoords.id}`);
+                const verseData = await response.json();
+
+                if (response.ok) {
+                    // Combine coordinates with fetched data
+                    const fullVerse = {
+                        ...verseCoords,
+                        citation: verseData.citation,
+                        text: verseData.text
+                    };
+                    // Only show tooltip once data is ready
+                    showTooltip(clickX, clickY, fullVerse);
+                } else {
+                    console.error('Error fetching verse:', verseData.error);
+                    showTooltip(clickX, clickY, {
+                        ...verseCoords,
+                        citation: 'Error',
+                        text: 'Failed to load verse details'
+                    });
+                }
+            } catch (error) {
+                console.error('Error fetching verse:', error);
+                showTooltip(clickX, clickY, {
+                    ...verseCoords,
+                    citation: 'Error',
+                    text: 'Failed to load verse details'
+                });
+            }
         }
     } else {
         lastClickedIndex = -1;
@@ -477,7 +496,7 @@ fetch('/api/verses')
     });
 
 // Function to highlight similar verses
-export function highlightSimilarVerses(similarVerses, originalVerseId = null) {
+export function highlightSimilarVerses(similarVerses, originalVerseId = null, focusedVerseId = null) {
     if (!pointsObject || !verseManager.ids) {
         console.warn('Points not loaded yet');
         return;
@@ -554,6 +573,24 @@ export function highlightSimilarVerses(similarVerses, originalVerseId = null) {
         }
     });
 
+    // Super-emphasize the focused verse if provided (clicked from results list)
+    // This gets applied AFTER similar verses, so it overrides their styling
+    if (focusedVerseId !== null && verseManager.idToIndex.has(focusedVerseId)) {
+        const i = verseManager.idToIndex.get(focusedVerseId);
+        highlightedVerses.add(i);
+        const colorIndex = i * 3;
+
+        // Focused verse: bright magenta/pink (1.0, 0.0, 1.0) - very distinctive!
+        verseManager.colors[colorIndex] = 1.0; // R
+        verseManager.colors[colorIndex + 1] = 0.0; // G
+        verseManager.colors[colorIndex + 2] = 1.0; // B
+
+        // Make focused verse even larger than original (most prominent)
+        verseManager.sizes[i] = 6.0;
+
+        console.log(`Super-emphasizing focused verse ID ${focusedVerseId}`);
+    }
+
     // Update the colors and sizes in the geometry
     pointsGeometry.attributes.color.needsUpdate = true;
     pointsGeometry.attributes.size.needsUpdate = true;
@@ -580,29 +617,59 @@ export function clearHighlights() {
 }
 
 // Function to pan camera to highlighted verses
-export function panCameraToVerses(similarVerses, originalVerseId = null) {
+// Unified function to pan camera to verse(s)
+// Accepts: number (verse ID), or array of verse objects with {id, ...}
+export function panCameraToVerse(input) {
     if (!pointsObject || !verseManager.ids) {
         console.warn('Points not loaded yet');
         return;
     }
 
-    // Focus on the original verse if provided, otherwise use centroid of similar verses
     let focusPoint;
 
-    if (originalVerseId !== null && verseManager.idToIndex.has(originalVerseId)) {
-        // Focus on the original verse that the user searched for
-        const i = verseManager.idToIndex.get(originalVerseId);
+    // Handle single verse ID (number) - FOCUSED CLOSE-UP VIEW
+    if (typeof input === 'number') {
+        if (!verseManager.idToIndex.has(input)) {
+            console.warn(`Verse ID ${input} not found`);
+            return;
+        }
+
+        const i = verseManager.idToIndex.get(input);
         const idx = i * 3;
         focusPoint = {
             x: verseManager.positions[idx],
             y: verseManager.positions[idx + 1],
             z: verseManager.positions[idx + 2]
         };
-        console.log(`Panning camera to original verse ID ${originalVerseId} at:`, focusPoint);
-    } else {
-        // Fallback: calculate centroid of similar verses
+
+        // Set target to verse position
+        targetCameraTarget.set(focusPoint.x, focusPoint.y, focusPoint.z);
+
+        // Zoom in VERY close for single verse
+        targetCameraDistance = 60;
+
+        // Calculate viewing angle from current camera direction to verse
+        // This maintains the relative viewing direction but moves much closer
+        const dx = camera.position.x - focusPoint.x;
+        const dy = camera.position.y - focusPoint.y;
+        const dz = camera.position.z - focusPoint.z;
+
+        // Calculate spherical coordinates from this direction vector
+        const horizontalDist = Math.sqrt(dx * dx + dz * dz);
+        targetCameraRotation.theta = Math.atan2(dx, dz);
+        targetCameraRotation.phi = Math.atan2(dy, horizontalDist);
+
+        // Clamp phi to avoid gimbal lock at poles
+        targetCameraRotation.phi = Math.max(-Math.PI / 2 + 0.1,
+                                            Math.min(Math.PI / 2 - 0.1,
+                                                    targetCameraRotation.phi));
+
+        console.log(`Zooming to verse ID ${input} at close range (distance: 60)`);
+    }
+    // Handle array of verses - OVERVIEW OF GROUP
+    else if (Array.isArray(input)) {
         const positions = [];
-        similarVerses.forEach(item => {
+        input.forEach(item => {
             if (verseManager.idToIndex.has(item.id)) {
                 const i = verseManager.idToIndex.get(item.id);
                 const idx = i * 3;
@@ -624,14 +691,19 @@ export function panCameraToVerses(similarVerses, originalVerseId = null) {
             y: acc.y + pos.y / positions.length,
             z: acc.z + pos.z / positions.length
         }), { x: 0, y: 0, z: 0 });
-        console.log(`Panning camera to centroid of ${positions.length} similar verses at:`, focusPoint);
+
+        // Set target to centroid
+        targetCameraTarget.set(focusPoint.x, focusPoint.y, focusPoint.z);
+
+        // Keep comfortable overview distance for groups
+        targetCameraDistance = 400;
+
+        // Don't change camera angles - preserve current viewing angle for overview
+
+        console.log(`Panning to centroid of ${positions.length} verses (distance: 400)`);
     }
-
-    // Set camera target to the focus point
-    targetCameraTarget.set(focusPoint.x, focusPoint.y, focusPoint.z);
-
-    // Use a fixed comfortable viewing distance
-    targetCameraDistance = 400;
-
-    console.log(`Camera distance: ${targetCameraDistance}`);
+    else {
+        console.warn('Invalid input to panCameraToVerse');
+        return;
+    }
 }

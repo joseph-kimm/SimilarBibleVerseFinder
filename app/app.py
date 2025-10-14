@@ -3,7 +3,8 @@ import pandas as pd
 import numpy as np
 import os
 from dotenv import load_dotenv
-import psycopg2 
+import psycopg2
+from psycopg2 import pool
 from sentence_transformers import SentenceTransformer
 from pathlib import Path
 
@@ -12,17 +13,25 @@ dotenv_path = Path(__file__).resolve().parent.parent / '.env'
 load_dotenv()
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
-def connect():
-    conn = psycopg2.connect(
-        host=os.getenv("POSTGRES_HOST"),
-        dbname=os.getenv("POSTGRES_DB"),
-        user=os.getenv("POSTGRES_USER"),
-        password=os.getenv("POSTGRES_PASSWORD"),
-        port=os.getenv("POSTGRES_PORT")
-    )
-    cursor = conn.cursor()
+# Create a connection pool for better performance
+# Reuses connections instead of creating new ones for each request
+connection_pool = pool.SimpleConnectionPool(
+    1,  # minimum connections
+    10,  # maximum connections
+    host=os.getenv("POSTGRES_HOST"),
+    dbname=os.getenv("POSTGRES_DB"),
+    user=os.getenv("POSTGRES_USER"),
+    password=os.getenv("POSTGRES_PASSWORD"),
+    port=os.getenv("POSTGRES_PORT")
+)
 
+def connect():
+    conn = connection_pool.getconn()
+    cursor = conn.cursor()
     return conn, cursor
+
+def release_connection(conn):
+    connection_pool.putconn(conn)
 
 
 
@@ -38,28 +47,18 @@ def get_initial_verses():
 
     try:
         cursor.execute("""
-            SELECT id, citation, book_number, text
-            FROM verses_table
-        """)
-
-        verses_rows = cursor.fetchall()
-
-        cursor.execute("""
             SELECT id, embedding
             FROM embeddings_3d_table
         """)
 
         rows = cursor.fetchall()
         embeddings_3d = [np.fromstring(r[1].strip("[]"), sep=',', dtype=np.float32) for r in rows]
-        id = [int(r[0]) for r in rows]
+        ids = [int(r[0]) for r in rows]
 
         verses = []
-        for i, verse in enumerate(verses_rows):
+        for i, verse_id in enumerate(ids):
             verses.append({
-                "id": int(verse[0]),
-                "citation": verse[1],
-                "book": int(verse[2]),
-                "text": verse[3],
+                "id": verse_id,
                 "coordinates": {
                     "x": float(embeddings_3d[i][0]),
                     "y": float(embeddings_3d[i][1]),
@@ -67,53 +66,103 @@ def get_initial_verses():
                 }
             })
 
-        print(len(verses))
+        print(f"Loaded {len(verses)} verses with id and coordinates only")
         return jsonify({"verses": verses}), 200
 
     except Exception as e:
         print(f"Error fetching initial data: {e}")
         return jsonify({"error": "Error fetching initial data"}), 500
-    
+
     finally:
         cursor.close()
-        conn.close()
+        release_connection(conn)
+
+@app.route('/api/verse/<int:verse_id>', methods=['GET'])
+def get_verse(verse_id):
+    conn, cursor = connect()
+
+    try:
+        cursor.execute("""
+            SELECT id, citation, text
+            FROM verses_table
+            WHERE id = %s
+        """, (verse_id,))
+
+        verse_row = cursor.fetchone()
+
+        if not verse_row:
+            return jsonify({"error": "Verse not found"}), 404
+
+        verse = {
+            "id": int(verse_row[0]),
+            "citation": verse_row[1],
+            "text": verse_row[2]
+        }
+
+        return jsonify(verse), 200
+
+    except Exception as e:
+        print(f"Error fetching verse {verse_id}: {e}")
+        return jsonify({"error": "Error fetching verse"}), 500
+
+    finally:
+        cursor.close()
+        release_connection(conn)
 
 @app.route('/find_similar', methods=['POST'])
 def find_similar():
     id = request.json.get('id')
     id = int(id)
 
-    print(id)
-    
+    print(f"Finding similar verses for ID: {id}")
+
     conn, cursor = connect()
 
     try:
-        # finding similar verses
+        # Get original verse details
         cursor.execute("""
-            SELECT similar_id, rank, similarity
-            FROM each_verse_similarity_table
-            WHERE verse_id = %s 
-            ORDER BY rank
+            SELECT id, citation, text
+            FROM verses_table
+            WHERE id = %s
+        """, (id,))
+
+        original_row = cursor.fetchone()
+        if not original_row:
+            return jsonify({"error": "Original verse not found"}), 404
+
+        original_verse = {
+            "id": int(original_row[0]),
+            "citation": original_row[1],
+            "text": original_row[2]
+        }
+
+        # Find similar verses with their details
+        cursor.execute("""
+            SELECT
+                s.similar_id,
+                s.similarity,
+                v.citation,
+                v.text
+            FROM each_verse_similarity_table s
+            JOIN verses_table v ON s.similar_id = v.id
+            WHERE s.verse_id = %s
+            ORDER BY s.rank
             LIMIT 30;
         """, (id,))
 
-        similar_ids = []
-        similarities = []
-
-        for row in cursor.fetchall():
-            similar_ids.append(int(row[0]))
-            similarities.append(float(row[2]))
-
         verses_results = []
-
-        for i, similar_id in enumerate(similar_ids):
-
+        for row in cursor.fetchall():
             verses_results.append({
-                "id": similar_id,
-                "similarity": similarities[i],
+                "id": int(row[0]),
+                "similarity": float(row[1]),
+                "citation": row[2],
+                "text": row[3]
             })
-        
-        return jsonify({"results": verses_results}), 200
+
+        return jsonify({
+            "original_verse": original_verse,
+            "results": verses_results
+        }), 200
 
     except Exception as e:
         print(f"Error fetching similar verses: {e}")
@@ -121,7 +170,7 @@ def find_similar():
 
     finally:
         cursor.close()
-        conn.close()
+        release_connection(conn)
 
 @app.route('/find_query', methods=['POST'])
 def find_query():
@@ -141,26 +190,36 @@ def find_query():
             np.fromstring(r[1].strip("[]"), sep=',', dtype=np.float32)
             for r in rows
         ], dtype=np.float32)
-        
+
         ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
 
-        similarities = model.similarity([embedding], embeddings)[0].detach().cpu().numpy()
-        
-        print("embedding:", type(embedding), np.shape(embedding))
-        print("embeddings:", type(embeddings), np.shape(embeddings))
-        print("similarities:", type(similarities), np.shape(similarities))
-        print("ids:", type(ids), np.shape(ids))
+        # Reshape embedding to 2D array for model.similarity (expects batch dimension)
+        # This avoids the warning about converting list of numpy arrays to tensor
+        embedding_batch = embedding.reshape(1, -1)
+        similarities = model.similarity(embedding_batch, embeddings)[0].detach().cpu().numpy()
 
         top_indices = np.argsort(similarities)[-30:][::-1]
         top_ids = ids[top_indices]
         top_similarities = similarities[top_indices]
-        
+
+        # Fetch verse details for top results
         verse_results = []
         for i in range(len(top_ids)):
-            verse_results.append({
-                "id": int(top_ids[i]),
-                "similarity": float(top_similarities[i])
-            })
+            verse_id = int(top_ids[i])
+            cursor.execute("""
+                SELECT citation, text
+                FROM verses_table
+                WHERE id = %s
+            """, (verse_id,))
+
+            verse_row = cursor.fetchone()
+            if verse_row:
+                verse_results.append({
+                    "id": verse_id,
+                    "similarity": float(top_similarities[i]),
+                    "citation": verse_row[0],
+                    "text": verse_row[1]
+                })
 
         return jsonify({"results": verse_results}), 200
 
@@ -170,7 +229,7 @@ def find_query():
 
     finally:
         cursor.close()
-        conn.close()
+        release_connection(conn)
     
 
 
