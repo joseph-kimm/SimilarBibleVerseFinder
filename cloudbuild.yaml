@@ -68,6 +68,3 @@ substitutions:
 options:
   machineType: 'N1_HIGHCPU_8'  # Use a faster machine for builds
   logging: CLOUD_LOGGING_ONLY
-
-# Timeout for the entire build (10 minutes)
-timeout: '600s'
