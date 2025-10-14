@@ -1,2 +1,0 @@
-runtime: python311 # or python310, python312, etc.
-entrypoint: gunicorn -b :$PORT app:app
