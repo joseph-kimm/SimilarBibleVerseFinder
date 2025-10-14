@@ -9,11 +9,9 @@ from sentence_transformers import SentenceTransformer
 from pathlib import Path
 
 # For Google Cloud deployment
-PORT = 8080 
+PORT = int(os.environ.get("PORT", 8080))
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
 
-# Load environment variables from .env file
-dotenv_path = Path(__file__).resolve().parent.parent / '.env'
-load_dotenv()
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
 # Create a connection pool for better performance
@@ -21,7 +19,7 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 connection_pool = pool.SimpleConnectionPool(
     1,  # minimum connections
     10,  # maximum connections
-    url=os.getenv("SUPABASE_URL")
+    url=SUPABASE_URL
 )
 
 def connect():

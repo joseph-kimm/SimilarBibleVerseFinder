@@ -1,0 +1,48 @@
+# This file specifies files that are *not* uploaded to Google Cloud
+# using gcloud. It follows the same syntax as .gitignore.
+
+# Python pycache:
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment files - CRITICAL: Never deploy these!
+.env
+.env.*
+*.env
+
+# Development files
+.vscode/
+.devcontainer/
+*.local
+
+# Notebooks and scripts (development only)
+notebooks/
+scripts/
+
+# Data files (if large, should be in Cloud Storage)
+data/
+datasets/
+
+# Git files
+.git/
+.gitignore
+.gitattributes
+
+# IDE files
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Testing files
+tests/
+*.test.py
+pytest.ini
+
+# Documentation
+README.md
+LICENSE
+
+# Docker compose (not needed for Cloud Run)
+docker-compose.yml

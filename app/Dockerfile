@@ -25,4 +25,4 @@ ENV PYTHONUNBUFFERED=1
 EXPOSE 8080
 
 # Run the Flask application
-CMD exec gunicorn --bind :$PORT --workers 2 'app:app'
+CMD exec gunicorn --bind :$PORT --threads 2 --workers 1 'app:app'
