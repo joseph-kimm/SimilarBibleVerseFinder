@@ -48,6 +48,10 @@ steps:
       - 'gcr.io/$PROJECT_ID/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
       - '${_REGION}'
+      - '--memory'
+      - '2Gi'
+      - '--cpu'
+      - '2'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -61,7 +65,7 @@ images:
 
 # Substitution variables
 substitutions:
-  _SERVICE_NAME: 'similar-bible-verse-finder'  # Change this to your service name
+  _SERVICE_NAME: 'bible-verse-explorer'  # Change this to your service name
   _REGION: 'asia-northeast1'  # Change this to your preferred region
 
 # Options for the build
