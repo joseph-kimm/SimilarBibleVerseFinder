@@ -10,7 +10,6 @@ from pathlib import Path
 
 # For Google Cloud deployment
 PORT = int(os.environ.get("PORT", 8080))
-SUPABASE_URL = os.environ.get("SUPABASE_URL")
 
 model = SentenceTransformer('all-MiniLM-L6-v2')
 
@@ -19,7 +18,11 @@ model = SentenceTransformer('all-MiniLM-L6-v2')
 connection_pool = pool.SimpleConnectionPool(
     1,  # minimum connections
     10,  # maximum connections
-    url=SUPABASE_URL
+    user=os.environ.get("SUPABASE_USER"),
+    password=os.environ.get("SUPABASE_PASSWORD"),
+    host=os.environ.get("SUPABASE_HOST"),
+    port=os.environ.get("SUPABASE_PORT"),
+    database=os.environ.get("SUPABASE_DB")
 )
 
 def connect():
@@ -199,23 +202,26 @@ def find_query():
         top_ids = ids[top_indices]
         top_similarities = similarities[top_indices]
 
-        # Fetch verse details for top results
-        verse_results = []
-        for i in range(len(top_ids)):
-            verse_id = int(top_ids[i])
-            cursor.execute("""
-                SELECT citation, text
-                FROM verses_table
-                WHERE id = %s
-            """, (verse_id,))
+        # Fetch all verse details in a single query
+        top_ids_list = [int(vid) for vid in top_ids]
+        cursor.execute("""
+            SELECT id, citation, text
+            FROM verses_table
+            WHERE id = ANY(%s)
+        """, (top_ids_list,))
 
-            verse_row = cursor.fetchone()
-            if verse_row:
+        # Create a dictionary for fast lookup
+        verse_dict = {row[0]: {"citation": row[1], "text": row[2]} for row in cursor.fetchall()}
+
+        # Build results in the correct order with similarities
+        verse_results = []
+        for i, verse_id in enumerate(top_ids_list):
+            if verse_id in verse_dict:
                 verse_results.append({
                     "id": verse_id,
                     "similarity": float(top_similarities[i]),
-                    "citation": verse_row[0],
-                    "text": verse_row[1]
+                    "citation": verse_dict[verse_id]["citation"],
+                    "text": verse_dict[verse_id]["text"]
                 })
 
         return jsonify({"results": verse_results}), 200
