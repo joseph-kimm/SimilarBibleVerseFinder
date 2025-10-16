@@ -13,6 +13,9 @@ umap-learn
 # for our model
 sentence-transformers
 
+# connecting to huggingface api
+huggingface-hub
+
 # backend framework
 flask
 
