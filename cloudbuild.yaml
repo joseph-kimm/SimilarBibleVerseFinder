@@ -49,9 +49,9 @@ steps:
       - '--region'
       - '${_REGION}'
       - '--memory'
-      - '2Gi'
+      - '512Mi'
       - '--cpu'
-      - '2'
+      - '1'
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
@@ -70,5 +70,5 @@ substitutions:
 
 # Options for the build
 options:
-  machineType: 'N1_HIGHCPU_8'  # Use a faster machine for builds
+  machineType: 'E2_HIGHCPU_8'  # Use cost-effective e2 machine type
   logging: CLOUD_LOGGING_ONLY

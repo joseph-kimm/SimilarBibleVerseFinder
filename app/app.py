@@ -5,13 +5,22 @@ import os
 from dotenv import load_dotenv
 import psycopg2
 from psycopg2 import pool
-from sentence_transformers import SentenceTransformer
 from pathlib import Path
+from huggingface_hub import InferenceClient
 
 # For Google Cloud deployment
 PORT = int(os.environ.get("PORT", 8080))
 
-model = SentenceTransformer('all-MiniLM-L6-v2')
+# using hugging face api to reduce memory usage on deployment
+HF_TOKEN = os.environ.get('HF_TOKEN')
+client = InferenceClient(token=HF_TOKEN)
+
+def get_embedding(text):
+    embedding = client.feature_extraction(
+        text,
+        model="sentence-transformers/all-MiniLM-L6-v2"
+    )
+    return embedding                   
 
 # Create a connection pool for better performance
 # Reuses connections instead of creating new ones for each request
@@ -175,7 +184,7 @@ def find_similar():
 @app.route('/find_query', methods=['POST'])
 def find_query():
     query = str(request.json.get('query'))
-    embedding = model.encode([query])[0]
+    embedding = get_embedding(query)
 
     conn, cursor = connect()
 
@@ -193,10 +202,11 @@ def find_query():
 
         ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
 
-        # Reshape embedding to 2D array for model.similarity (expects batch dimension)
-        # This avoids the warning about converting list of numpy arrays to tensor
-        embedding_batch = embedding.reshape(1, -1)
-        similarities = model.similarity(embedding_batch, embeddings)[0].detach().cpu().numpy()
+        # Calculate cosine similarity between query embedding and all verse embeddings
+        # Cosine similarity = dot product / (norm of A * norm of B)
+        similarities = np.dot(embeddings, embedding) / (
+            np.linalg.norm(embeddings, axis=1) * np.linalg.norm(embedding)
+        )
 
         top_indices = np.argsort(similarities)[-30:][::-1]
         top_ids = ids[top_indices]
