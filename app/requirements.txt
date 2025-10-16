@@ -10,9 +10,6 @@ sqlalchemy
 # for 3d visualization
 umap-learn
 
-# for our model
-sentence-transformers
-
 # connecting to huggingface api
 huggingface-hub
 
