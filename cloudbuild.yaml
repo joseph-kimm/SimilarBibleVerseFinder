@@ -63,7 +63,7 @@ substitutions:
   _SERVICE_NAME: 'bible-verse-explorer'
   _REGION: 'asia-northeast1'
   # 👇 Replace YOUR_PROJECT_ID and YOUR_REPO_NAME below
-  _AR_REPO: 'asia-northeast1-docker.pkg.dev/bible-verse-explorer-475102/bible-verse-explorer-repo'
+  _AR_REPO: 'asia-northeast1-docker.pkg.dev/bible-verse-explorer-475102/bible-verse-explorer'
 
 # Build options
 options:
