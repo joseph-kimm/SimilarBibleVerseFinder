@@ -16,10 +16,6 @@ huggingface-hub
 # backend framework
 flask
 
-# for google cloud deployment
-gunicorn
-google-cloud-secret-manager
-
 # usual data libraries
 pandas
 numpy

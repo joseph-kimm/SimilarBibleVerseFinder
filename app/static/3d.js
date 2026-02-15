@@ -7,6 +7,8 @@ const SCALE_FACTOR = 100; // Scale up coordinates
 const CAMERA_X = getRandomInt(400, 700);
 const CAMERA_Y = getRandomInt(500, 700);
 const CAMERA_Z = getRandomInt(800, 1000);
+const ROTATION_SENSITIVITY = 0.0001;
+const PAN_SENSITIVITY = 0.0001;
 
 // Ultra-efficient data structure using TypedArrays
 class VerseManager {
@@ -259,8 +261,12 @@ window.loadVerses = function(jsonData) {
 };
 
 // Mouse events
+let mouseDownPosition = { x: 0, y: 0 };
+const DRAG_THRESHOLD = 5;
+
 renderer.domElement.addEventListener('mousedown', (e) => {
     e.preventDefault();
+    mouseDownPosition = { x: e.clientX, y: e.clientY };
     if (e.button === 0) {
         isRotating = true;
     } else if (e.button === 2) {
@@ -281,8 +287,8 @@ renderer.domElement.addEventListener('mousemove', (e) => {
         const deltaX = e.clientX - previousMousePosition.x;
         const deltaY = e.clientY - previousMousePosition.y;
 
-        targetCameraRotation.theta -= deltaX * 0.001;
-        targetCameraRotation.phi += deltaY * 0.001;
+        targetCameraRotation.theta -= deltaX * ROTATION_SENSITIVITY;
+        targetCameraRotation.phi += deltaY * ROTATION_SENSITIVITY;
 
         targetCameraRotation.phi = Math.max(-Math.PI / 2 + 0.1, Math.min(Math.PI / 2 - 0.1, targetCameraRotation.phi));
 
@@ -291,7 +297,7 @@ renderer.domElement.addEventListener('mousemove', (e) => {
         const deltaX = e.clientX - previousMousePosition.x;
         const deltaY = e.clientY - previousMousePosition.y;
 
-        const panSpeed = targetCameraDistance * 0.001;
+        const panSpeed = targetCameraDistance * PAN_SENSITIVITY;
 
         const right = new THREE.Vector3();
         const up = new THREE.Vector3();
@@ -321,7 +327,9 @@ renderer.domElement.addEventListener('mouseup', (e) => {
 });
 
 renderer.domElement.addEventListener('click', async (e) => {
-    if (!pointsObject || isRotating || isPanning) return;
+    const dx = e.clientX - mouseDownPosition.x;
+    const dy = e.clientY - mouseDownPosition.y;
+    if (!pointsObject || Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) return;
 
     // Update mouse coordinates precisely
     mouse.x = (e.clientX / window.innerWidth) * 2 - 1;
@@ -444,7 +452,18 @@ function showTooltip(x, y, verse) {
 
 function hideTooltip() {
     tooltip.style.display = 'none';
+    lastClickedIndex = -1;
 }
+
+document.querySelector('.tooltip-close').addEventListener('click', () => {
+    hideTooltip();
+});
+
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        hideTooltip();
+    }
+});
 
 // Update camera position with smooth interpolation
 function updateCamera() {

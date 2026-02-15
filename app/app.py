@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, jsonify
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import pandas as pd
 import numpy as np
 import os
@@ -8,8 +8,10 @@ from psycopg2 import pool
 from pathlib import Path
 from huggingface_hub import InferenceClient
 
+load_dotenv()
+
 # For Google Cloud deployment
-PORT = int(os.environ.get("PORT", 8080))
+PORT = int(os.environ.get("PORT", 5000))
 
 # using hugging face api to reduce memory usage on deployment
 HF_TOKEN = os.environ.get('HF_TOKEN')
@@ -247,5 +249,6 @@ def find_query():
 
 
 if __name__ == '__main__':
-    app.run(host="0.0.0.0", port=PORT, debug=True)
+    app.run(host="127.0.0.1", port=PORT)
+
     
