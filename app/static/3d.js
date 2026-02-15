@@ -508,6 +508,9 @@ fetch('/api/verses')
     .then(data => {
         console.log(data.verses[0])
         loadVerses(data.verses);
+        document.getElementById('click-hint').textContent = 'Click to explore the Word of God';
+        // Trigger background caching of embeddings for text search
+        fetch('/api/cache', { method: 'POST' });
     })
     .catch(error => {
         console.error('Error loading file:', error);
@@ -619,6 +622,20 @@ export function highlightSimilarVerses(similarVerses, originalVerseId = null, fo
 export { verseManager };
 
 // Function to clear highlights
+export function resetView() {
+    clearHighlights();
+    const newX = getRandomInt(400, 700);
+    const newY = getRandomInt(500, 700);
+    const newZ = getRandomInt(800, 1000);
+    const newDistance = Math.sqrt(newX * newX + newY * newY + newZ * newZ);
+    targetCameraDistance = newDistance;
+    targetCameraRotation.theta = Math.atan2(newY, newZ);
+    targetCameraRotation.phi = Math.asin(newX / newDistance);
+    targetCameraTarget.set(0, 0, 0);
+    lastClickedIndex = -1;
+    hideTooltip();
+}
+
 export function clearHighlights() {
     if (!pointsObject || !originalColors || !originalSizes) {
         return;

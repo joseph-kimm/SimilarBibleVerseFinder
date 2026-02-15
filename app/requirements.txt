@@ -4,20 +4,11 @@ psycopg2-binary
 # loading env variables
 python-dotenv
 
-# sql related library
-sqlalchemy
-
-# for 3d visualization
-umap-learn
-
 # connecting to huggingface api
 huggingface-hub
 
 # backend framework
 flask
 
-# usual data libraries
-pandas
+# data libraries
 numpy
-
-

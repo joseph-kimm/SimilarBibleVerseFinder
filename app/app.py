@@ -1,11 +1,9 @@
-from flask import Flask, render_template, request, jsonify, send_from_directory
-import pandas as pd
+from flask import Flask, render_template, request, jsonify
 import numpy as np
 import os
+import threading
 from dotenv import load_dotenv
-import psycopg2
 from psycopg2 import pool
-from pathlib import Path
 from huggingface_hub import InferenceClient
 
 load_dotenv()
@@ -46,24 +44,61 @@ def release_connection(conn):
 
 
 
+# Lazy-loaded embedding cache (~47 MB for 31K verses)
+# Loaded in background after frontend triggers /api/cache
+cached_ids = None
+cached_embeddings = None
+cached_norms = None
+cache_ready = False
+cache_loading = False
+
+def load_embeddings_background():
+    global cached_ids, cached_embeddings, cached_norms, cache_ready
+    conn, cursor = connect()
+    try:
+        cursor.execute("SELECT id, embedding FROM embeddings_table")
+        rows = cursor.fetchall()
+        cached_ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
+        cached_embeddings = np.array([
+            np.array(r[1].strip("[]").split(','), dtype=np.float32)
+            for r in rows
+        ], dtype=np.float32)
+        cached_norms = np.linalg.norm(cached_embeddings, axis=1)
+        cache_ready = True
+        print(f"Cached {len(cached_ids)} embeddings in memory")
+    finally:
+        cursor.close()
+        release_connection(conn)
+
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return render_template("3d.html")
 
+@app.route('/api/cache', methods=['POST'])
+def trigger_cache():
+    global cache_loading
+    if cache_ready:
+        return jsonify({"status": "already_cached"}), 200
+    if cache_loading:
+        return jsonify({"status": "already_loading"}), 200
+    cache_loading = True
+    threading.Thread(target=load_embeddings_background, daemon=True).start()
+    return jsonify({"status": "caching_started"}), 200
+
 @app.route('/api/verses', methods=['GET'])
 def get_initial_verses():
-    conn, cursor = connect()
-
+    conn = cursor = None
     try:
+        conn, cursor = connect()
         cursor.execute("""
             SELECT id, embedding
             FROM embeddings_3d_table
         """)
 
         rows = cursor.fetchall()
-        embeddings_3d = [np.fromstring(r[1].strip("[]"), sep=',', dtype=np.float32) for r in rows]
+        embeddings_3d = [np.array(r[1].strip("[]").split(','), dtype=np.float32) for r in rows]
         ids = [int(r[0]) for r in rows]
 
         verses = []
@@ -85,14 +120,14 @@ def get_initial_verses():
         return jsonify({"error": "Error fetching initial data"}), 500
 
     finally:
-        cursor.close()
-        release_connection(conn)
+        if cursor: cursor.close()
+        if conn: release_connection(conn)
 
 @app.route('/api/verse/<int:verse_id>', methods=['GET'])
 def get_verse(verse_id):
-    conn, cursor = connect()
-
+    conn = cursor = None
     try:
+        conn, cursor = connect()
         cursor.execute("""
             SELECT id, citation, text
             FROM verses_table
@@ -117,19 +152,21 @@ def get_verse(verse_id):
         return jsonify({"error": "Error fetching verse"}), 500
 
     finally:
-        cursor.close()
-        release_connection(conn)
+        if cursor: cursor.close()
+        if conn: release_connection(conn)
 
 @app.route('/find_similar', methods=['POST'])
 def find_similar():
-    id = request.json.get('id')
-    id = int(id)
+    try:
+        id = int(request.json.get('id'))
+    except (TypeError, ValueError):
+        return jsonify({"error": "Invalid verse ID"}), 400
 
     print(f"Finding similar verses for ID: {id}")
 
-    conn, cursor = connect()
-
+    conn = cursor = None
     try:
+        conn, cursor = connect()
         # Get original verse details
         cursor.execute("""
             SELECT id, citation, text
@@ -180,52 +217,43 @@ def find_similar():
         return jsonify({"error": "Error fetching similar verses"}), 500
 
     finally:
-        cursor.close()
-        release_connection(conn)
+        if cursor: cursor.close()
+        if conn: release_connection(conn)
 
 @app.route('/find_query', methods=['POST'])
 def find_query():
-    query = str(request.json.get('query'))
+    query = request.json.get('query')
+    if not query or not isinstance(query, str):
+        return jsonify({"error": "Invalid query"}), 400
+    # Wait for cache to be ready if it's still loading
+    while not cache_ready:
+        import time
+        time.sleep(0.1)
+
     embedding = get_embedding(query)
 
-    conn, cursor = connect()
+    # Use cached embeddings and pre-computed norms
+    similarities = np.dot(cached_embeddings, embedding) / (
+        cached_norms * np.linalg.norm(embedding)
+    )
 
+    top_indices = np.argsort(similarities)[-30:][::-1]
+    top_ids = cached_ids[top_indices]
+    top_similarities = similarities[top_indices]
+
+    # Only hit DB for the 30 verse details
+    top_ids_list = [int(vid) for vid in top_ids]
+    conn = cursor = None
     try:
-        cursor.execute("""
-            SELECT id, embedding FROM embeddings_table
-        """)
-
-        rows = cursor.fetchall()
-
-        embeddings = np.array([
-            np.fromstring(r[1].strip("[]"), sep=',', dtype=np.float32)
-            for r in rows
-        ], dtype=np.float32)
-
-        ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
-
-        # Calculate cosine similarity between query embedding and all verse embeddings
-        # Cosine similarity = dot product / (norm of A * norm of B)
-        similarities = np.dot(embeddings, embedding) / (
-            np.linalg.norm(embeddings, axis=1) * np.linalg.norm(embedding)
-        )
-
-        top_indices = np.argsort(similarities)[-30:][::-1]
-        top_ids = ids[top_indices]
-        top_similarities = similarities[top_indices]
-
-        # Fetch all verse details in a single query
-        top_ids_list = [int(vid) for vid in top_ids]
+        conn, cursor = connect()
         cursor.execute("""
             SELECT id, citation, text
             FROM verses_table
             WHERE id = ANY(%s)
         """, (top_ids_list,))
 
-        # Create a dictionary for fast lookup
         verse_dict = {row[0]: {"citation": row[1], "text": row[2]} for row in cursor.fetchall()}
 
-        # Build results in the correct order with similarities
         verse_results = []
         for i, verse_id in enumerate(top_ids_list):
             if verse_id in verse_dict:
@@ -243,9 +271,9 @@ def find_query():
         return jsonify({"error": "Error fetching similar verses"}), 500
 
     finally:
-        cursor.close()
-        release_connection(conn)
-    
+        if cursor: cursor.close()
+        if conn: release_connection(conn)
+
 
 
 if __name__ == '__main__':

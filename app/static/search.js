@@ -1,5 +1,5 @@
 // Import highlight and camera functions from 3d.js
-import { highlightSimilarVerses, panCameraToVerse } from './3d.js';
+import { highlightSimilarVerses, panCameraToVerse, resetView } from './3d.js';
 
 // Landing overlay functionality
 const landingOverlay = document.getElementById('landing-overlay');
@@ -154,8 +154,8 @@ function displayVersesList(verses, originalVerse = null) {
 
 // Send verse to the server
 function sendVerse(book, chapter, verse) {
-    const booknNames = Object.keys(fullBibleData);
-    const bookId = booknNames.indexOf(book) +1;
+    const bookNames = Object.keys(fullBibleData);
+    const bookId = bookNames.indexOf(book) +1;
 
     // error of chapter and verse being a string
     chapter = Number(chapter)
@@ -276,6 +276,11 @@ document.getElementById("findByTextButton").addEventListener("click", function (
     }
     
     else {
-        sendQuery(query);   
+        sendQuery(query);
     }
+});
+
+document.getElementById("resetViewButton").addEventListener("click", function () {
+    resetView();
+    document.getElementById('results-list').innerHTML = '';
 });
