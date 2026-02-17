@@ -197,12 +197,18 @@ function sendVerse(book, chapter, verse) {
     });
 }
 
+// Track whether embeddings have been cached on the server
+let embeddingsCached = false;
+
 // Send text query to the server
 function sendQuery(query) {
     const loadingSpinner = document.getElementById('searchLoadingSpinner');
+    const loadingText = document.querySelector('#searchLoadingSpinner .loading-text');
 
-    // Show loading spinner
     loadingSpinner.classList.add('active');
+    loadingText.textContent = embeddingsCached
+        ? 'Comparing given text with all the bible verses...'
+        : 'Getting embedding information from the database...';
 
     fetch("/find_query", {
         method: "POST",
@@ -211,30 +217,21 @@ function sendQuery(query) {
     })
     .then(response => response.json())
     .then(data => {
-        // Hide loading spinner
         loadingSpinner.classList.remove('active');
+        embeddingsCached = true;
 
         if (data.error) {
             alert(data.error);
             return;
         }
 
-        // Results already contain citation and text from API
         const similarVerses = data.results;
-
-        // Display verses in the list (no original verse for text queries)
         displayVersesList(similarVerses, null);
-
-        // Highlight similar verses (no original verse for text queries)
         highlightSimilarVerses(similarVerses, null);
-
-        // Pan camera to centroid of all similar verses
         panCameraToVerse(similarVerses);
     })
     .catch(error => {
-        // Hide loading spinner on error
         loadingSpinner.classList.remove('active');
-
         console.error('Error:', error);
         alert('An error occurred while fetching similar verses.');
     });

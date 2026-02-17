@@ -1,7 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import numpy as np
 import os
-import threading
 from dotenv import load_dotenv
 from psycopg2 import pool
 from huggingface_hub import InferenceClient
@@ -42,50 +41,16 @@ def connect():
 def release_connection(conn):
     connection_pool.putconn(conn)
 
-
-
-# Lazy-loaded embedding cache (~47 MB for 31K verses)
-# Loaded in background after frontend triggers /api/cache
+# Embedding cache - loaded on first /find_query call
 cached_ids = None
 cached_embeddings = None
 cached_norms = None
-cache_ready = False
-cache_loading = False
-
-def load_embeddings_background():
-    global cached_ids, cached_embeddings, cached_norms, cache_ready
-    conn, cursor = connect()
-    try:
-        cursor.execute("SELECT id, embedding FROM embeddings_table")
-        rows = cursor.fetchall()
-        cached_ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
-        cached_embeddings = np.array([
-            np.array(r[1].strip("[]").split(','), dtype=np.float32)
-            for r in rows
-        ], dtype=np.float32)
-        cached_norms = np.linalg.norm(cached_embeddings, axis=1)
-        cache_ready = True
-        print(f"Cached {len(cached_ids)} embeddings in memory")
-    finally:
-        cursor.close()
-        release_connection(conn)
 
 app = Flask(__name__)
 
 @app.route('/')
 def home():
     return render_template("3d.html")
-
-@app.route('/api/cache', methods=['POST'])
-def trigger_cache():
-    global cache_loading
-    if cache_ready:
-        return jsonify({"status": "already_cached"}), 200
-    if cache_loading:
-        return jsonify({"status": "already_loading"}), 200
-    cache_loading = True
-    threading.Thread(target=load_embeddings_background, daemon=True).start()
-    return jsonify({"status": "caching_started"}), 200
 
 @app.route('/api/verses', methods=['GET'])
 def get_initial_verses():
@@ -222,29 +187,46 @@ def find_similar():
 
 @app.route('/find_query', methods=['POST'])
 def find_query():
+    global cached_ids, cached_embeddings, cached_norms
     query = request.json.get('query')
     if not query or not isinstance(query, str):
         return jsonify({"error": "Invalid query"}), 400
-    # Wait for cache to be ready if it's still loading
-    while not cache_ready:
-        import time
-        time.sleep(0.1)
 
-    embedding = get_embedding(query)
-
-    # Use cached embeddings and pre-computed norms
-    similarities = np.dot(cached_embeddings, embedding) / (
-        cached_norms * np.linalg.norm(embedding)
-    )
-
-    top_indices = np.argsort(similarities)[-30:][::-1]
-    top_ids = cached_ids[top_indices]
-    top_similarities = similarities[top_indices]
-
-    # Only hit DB for the 30 verse details
-    top_ids_list = [int(vid) for vid in top_ids]
     conn = cursor = None
     try:
+        query_embedding = np.array(get_embedding(query), dtype=np.float32)
+
+        # Load and cache embeddings on first call
+        if cached_ids is None:
+            conn, cursor = connect()
+
+            cursor.execute("SELECT id, embedding FROM embeddings_table")
+
+            rows = cursor.fetchall()
+
+            cached_ids = np.array([int(r[0]) for r in rows], dtype=np.int32)
+
+            cached_embeddings = np.array([
+                np.array(r[1].strip("[]").split(','), dtype=np.float32)
+                for r in rows
+            ], dtype=np.float32)
+
+            cached_norms = np.linalg.norm(cached_embeddings, axis=1)
+
+            cursor.close()
+            release_connection(conn)
+            conn = cursor = None
+            print(f"Cached {len(cached_ids)} embeddings in memory")
+
+        similarities = np.dot(cached_embeddings, query_embedding) / (
+            cached_norms * np.linalg.norm(query_embedding)
+        )
+
+        top_indices = np.argsort(similarities)[-30:][::-1]
+        top_ids = cached_ids[top_indices]
+        top_similarities = similarities[top_indices]
+
+        top_ids_list = [int(vid) for vid in top_ids]
         conn, cursor = connect()
         cursor.execute("""
             SELECT id, citation, text
@@ -268,7 +250,7 @@ def find_query():
 
     except Exception as e:
         print(f"Error fetching similar verses: {e}")
-        return jsonify({"error": "Error fetching similar verses"}), 500
+        return jsonify({"error": "Database is temporarily unavailable. Please try again later."}), 500
 
     finally:
         if cursor: cursor.close()

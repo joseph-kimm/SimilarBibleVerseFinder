@@ -19,6 +19,7 @@ image = (
     image=image,
     secrets=[modal.Secret.from_name("bible-verse-secrets")],
     min_containers=0,
+    max_containers=1,
     cpu=2.0,
     memory=1024,
     timeout=300,

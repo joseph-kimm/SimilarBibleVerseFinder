@@ -386,6 +386,12 @@
         background: rgba(255, 255, 255, 0.3);
     }
 
+    .search-hint {
+        font-size: 0.75em;
+        opacity: 0.6;
+        margin-top: 8px;
+    }
+
     .search-loading {
         display: none;
         margin-top: 15px;

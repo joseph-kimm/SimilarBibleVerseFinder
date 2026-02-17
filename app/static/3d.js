@@ -509,12 +509,10 @@ fetch('/api/verses')
         console.log(data.verses[0])
         loadVerses(data.verses);
         document.getElementById('click-hint').textContent = 'Click to explore the Word of God';
-        // Trigger background caching of embeddings for text search
-        fetch('/api/cache', { method: 'POST' });
     })
     .catch(error => {
         console.error('Error loading file:', error);
-        alert('Failed to load verses_3d.json');
+        alert('Failed to load data');
     });
 
 // Function to highlight similar verses
