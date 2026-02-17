@@ -2,7 +2,7 @@
 
 An interactive web app that visualizes all 31,000+ Bible verses as stars in a 3D galaxy. Semantically similar verses cluster together, letting you explore connections across the entire Bible.
 
-[Live Demo](https://bible-verse-explorer-532219653721.asia-northeast1.run.app/)
+[Live Demo](https://josephjiminkim--bible-verse-explorer-flask-app.modal.run/)
 
 ## How It Works
 
