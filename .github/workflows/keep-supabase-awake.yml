@@ -12,6 +12,6 @@ jobs:
       - name: Ping Supabase Database
         run: |
           curl --fail -v \
-          "${{ secrets.SUPABASE_URL }}/rest/v1/verses_table?select=id&limit=1" \
+          "${{ secrets.SUPABASE_URL }}/rest/v1/verses_table?select=id&limit=1&nocache=$(date +%s)" \
           -H "apikey: ${{ secrets.SUPABASE_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_KEY }}"
