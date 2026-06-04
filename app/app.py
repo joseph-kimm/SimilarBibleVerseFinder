@@ -26,11 +26,7 @@ def get_embedding(text):
 connection_pool = pool.SimpleConnectionPool(
     1,  # minimum connections
     10,  # maximum connections
-    user=os.environ.get("SUPABASE_USER"),
-    password=os.environ.get("SUPABASE_PASSWORD"),
-    host=os.environ.get("SUPABASE_HOST"),
-    port=os.environ.get("SUPABASE_PORT"),
-    database=os.environ.get("SUPABASE_DB")
+    dsn=os.environ.get("DATABASE_URL")
 )
 
 def connect():

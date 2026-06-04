@@ -11,7 +11,7 @@ from sqlalchemy.pool import NullPool
 load_dotenv()
 
 def connect():
-    conn = psycopg2.connect(os.getenv("SUPABASE_URL_2"))
+    conn = psycopg2.connect(os.getenv("DATABASE_URL"))
     cursor = conn.cursor()
 
     return conn, cursor
